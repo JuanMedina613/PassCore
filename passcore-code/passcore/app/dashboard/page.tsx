@@ -1,70 +1,44 @@
-export default function LandingPage() {
+export default function DashboardPage() {
   return (
-    <div className="bg-gray-50 text-black font-sans scroll-smooth">
-      
-      {/* 1. SECCIÓN BLANCA - Ocupa toda la pantalla (min-h-screen) */}
-      <div className="min-h-screen flex flex-col">
-        {/* Barra de Navegación */}
-        <header className="flex justify-between items-center p-6 border-b border-gray-200 bg-white">
-          <h1 className="text-2xl font-bold tracking-tight text-blue-600">PassCore</h1>
-          <button className="font-bold border border-gray-300 px-5 py-2 rounded-xl hover:bg-gray-100 transition-colors shadow-sm bg-white">
-            Iniciar Sesión
+    <div className="flex h-screen bg-gray-100 text-black font-sans">
+      {/* Barra Lateral */}
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col justify-between p-6">
+        <div>
+          <h1 className="text-2xl font-bold mb-8 text-blue-700">PassCore</h1>
+          <nav className="flex flex-col gap-4">
+            <button className="text-left font-bold py-2 px-4 rounded-xl hover:bg-gray-100 transition-colors">
+              Configuracion
+            </button>
+            <button className="text-left font-bold py-2 px-4 rounded-xl bg-blue-50 text-blue-700">
+              Tus Contraseñas
+            </button>
+          </nav>
+        </div>
+        <div className="flex items-center gap-3 font-bold text-sm text-gray-700">
+          <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">👤</div>
+          <span>Usuario</span>
+        </div>
+      </aside>
+
+      {/* Panel Principal */}
+      <main className="flex-1 flex flex-col">
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-end px-6">
+          <button className="border border-gray-300 px-4 py-2 rounded-xl font-bold text-sm hover:bg-gray-100 transition-colors">
+            Cerrar Sesión
           </button>
         </header>
 
-        {/* Contenido Principal */}
-        <main className="flex-1 flex flex-col items-center justify-center text-center p-8">
-          <h2 className="text-5xl font-extrabold mb-6 text-blue-600 uppercase tracking-wide">
-            Tu Bóveda Digital
-          </h2>
-          <p className="text-xl mb-10 font-medium max-w-2xl text-gray-600">
-            Administrará, guardará y protegerá todas tus contraseñas en un solo lugar. 
-            El gestor definitivo para tu seguridad y tranquilidad.
-          </p>
-
-          {/* Botón Saber Más */}
-          <a href="#detalles" className="mb-14 bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-md hover:translate-y-1 hover:shadow-lg hover:bg-blue-700 transition-all text-lg">
-            Saber más ↓
-          </a>
-          
-          {/* Tarjetas */}
-          <div className="flex flex-col md:flex-row gap-8 w-full max-w-5xl justify-center">
-            <div className="p-8 flex-1 bg-white rounded-2xl shadow-lg border border-gray-100 hover:-translate-y-2 transition-transform">
-              <h3 className="font-bold text-xl mb-3 text-gray-800">🔒 Seguro</h3>
-              <p className="text-base font-medium text-gray-500 leading-relaxed">
-                Tus datos cifrados y protegidos contra cualquier amenaza externa.
-              </p>
-            </div>
-            <div className="p-8 flex-1 bg-white rounded-2xl shadow-lg border border-gray-100 hover:-translate-y-2 transition-transform">
-              <h3 className="font-bold text-xl mb-3 text-gray-800">⚡ Rápido</h3>
-              <p className="text-base font-medium text-gray-500 leading-relaxed">
-                Accede a tus credenciales inmediatamente sin perder un solo segundo.
-              </p>
-            </div>
-            <div className="p-8 flex-1 bg-white rounded-2xl shadow-lg border border-gray-100 hover:-translate-y-2 transition-transform">
-              <h3 className="font-bold text-xl mb-3 text-gray-800">👌 Fácil</h3>
-              <p className="text-base font-medium text-gray-500 leading-relaxed">
-                Una interfaz limpia, intuitiva y pensada para tu total comodidad.
-              </p>
-            </div>
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="border border-gray-300 p-12 text-center max-w-xl w-full bg-white rounded-2xl shadow-sm">
+            <h2 className="text-2xl font-bold text-gray-800 mb-8 uppercase tracking-wide">
+              Agregar Nueva Contraseña
+            </h2>
+            <button className="bg-blue-700 text-white font-bold py-4 px-8 rounded-xl shadow-md hover:bg-blue-800 transition-all">
+              + Contraseña
+            </button>
           </div>
-        </main>
-      </div>
-
-      {/* 2. TRANSICIÓN DIFUMINADA - Un puente entre el blanco/gris y el azul */}
-      <div className="w-full h-48 bg-linear-to-b from-gray-50 to-blue-600"></div>
-
-      {/* 3. SECCIÓN AZUL - Ocupa toda la pantalla (min-h-screen) */}
-      <section id="detalles" className="bg-blue-600 text-white min-h-screen flex flex-col items-center justify-center p-12 text-center pb-24">
-        <h2 className="text-5xl font-extrabold mb-10 uppercase tracking-wide">
-          ¿Por qué PassCore?
-        </h2>
-        <div className="max-w-3xl bg-blue-500 p-10 rounded-3xl shadow-2xl">
-          <p className="text-xl font-medium leading-relaxed">
-            PassCore no es solo un bloc de notas. Utiliza la potencia de bases de datos modernas para asegurar que tus contraseñas estén siempre disponibles para vos, y ocultas para el resto del mundo. Gracias a la encriptación avanzada y nuestras políticas de seguridad, tenés el control absoluto.
-          </p>
         </div>
-      </section>
+      </main>
     </div>
   );
 }

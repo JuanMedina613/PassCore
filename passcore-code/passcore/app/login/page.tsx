@@ -1,52 +1,89 @@
-import Link from "next/link";
+'use client'; // Necesario para usar hooks en Next.js
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase'; 
+import Link from 'next/link';
 
 export default function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setError(error.message);
+    } else {
+      router.push('/dashboard'); // Redirección exitosa
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 font-sans p-4">
-      
-      <div className="bg-white p-10 rounded-3xl shadow-xl w-full max-w-md border border-gray-100">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-blue-600 mb-2">PassCore</h1>
-          <p className="text-gray-500 font-medium">Inicia sesión en tu bóveda</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 font-sans p-4">
+      <div className="bg-white p-10 rounded-2xl shadow-xl w-full max-w-md border border-gray-200">
+        <div className="text-center mb-10">
+          <h1 className="text-3xl font-bold text-blue-800 mb-2">PassCore</h1>
+          <p className="text-gray-600 font-medium">Inicia sesión en tu bóveda</p>
         </div>
 
-        <form className="flex flex-col gap-5">
-          {/* Input Correo */}
+        {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
+
+        <form onSubmit={handleLogin} className="flex flex-col gap-6">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">Correo Electrónico</label>
+            <label className="block text-sm font-bold text-gray-800 mb-2">Correo Electrónico</label>
             <input 
               type="email" 
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-700 transition-all text-gray-900" 
               placeholder="tu@email.com" 
+              required
             />
           </div>
           
-          {/* Input Contraseña */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">Contraseña</label>
+            <label className="block text-sm font-bold text-gray-800 mb-2">Contraseña</label>
             <input 
               type="password" 
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-700 transition-all text-gray-900" 
               placeholder="••••••••" 
+              required
             />
           </div>
 
-          {/* Botón Ingresar */}
           <button 
-            type="button" 
-            className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-colors shadow-md mt-4"
+            type="submit" 
+            className="w-full bg-blue-700 text-white font-bold py-3 rounded-xl hover:bg-blue-800 transition-colors shadow-md mt-2"
           >
             Ingresar
           </button>
         </form>
 
         <div className="mt-8 text-center">
-          <Link href="/" className="text-sm text-gray-500 hover:text-blue-600 font-medium transition-colors">
+          <Link href="/" className="text-sm text-gray-600 hover:text-blue-800 font-medium transition-colors">
             ← Volver al inicio
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-600">
+                ¿No tienes cuenta?{' '}
+                <Link href="/signup" className="text-blue-700 font-bold hover:underline">
+                  Regístrate aquí
+                </Link>
+              </p>
+            </div>
           </Link>
         </div>
       </div>
-      
     </div>
+    
   );
 }
