@@ -17,7 +17,6 @@ export default function DashboardPage() {
   const [nombreCompleto, setNombreCompleto] = useState("");
   const [credenciales, setCredenciales] = useState<Credencial[]>([]);
 
-  // Modal nueva contraseña
   const [modalAbierto, setModalAbierto] = useState(false);
   const [sitio, setSitio] = useState("");
   const [nombreUsuario, setNombreUsuario] = useState("");
@@ -25,7 +24,6 @@ export default function DashboardPage() {
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState("");
 
-  // Modal detalle
   const [credencialSeleccionada, setCredencialSeleccionada] = useState<Credencial | null>(null);
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
 
@@ -48,12 +46,12 @@ export default function DashboardPage() {
   }, []);
 
   async function cargarCredenciales() {
-    const { data, error } = await supabase
-      .from("credenciales")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (!error && data) setCredenciales(data);
-  }
+  const { data, error } = await supabase
+    .from("credenciales")
+    .select("*")
+    .order("sitio", { ascending: true });
+  if (!error && data) setCredenciales(data);
+}
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -76,11 +74,8 @@ export default function DashboardPage() {
     if (error) {
       setMensaje(`Error: ${error.message}`);
     } else {
-      setSitio("");
-      setNombreUsuario("");
-      setContrasena("");
-      setMensaje("");
-      setModalAbierto(false);
+      setSitio(""); setNombreUsuario(""); setContrasena("");
+      setMensaje(""); setModalAbierto(false);
       cargarCredenciales();
     }
     setGuardando(false);
@@ -88,10 +83,7 @@ export default function DashboardPage() {
 
   function cerrarModal() {
     setModalAbierto(false);
-    setSitio("");
-    setNombreUsuario("");
-    setContrasena("");
-    setMensaje("");
+    setSitio(""); setNombreUsuario(""); setContrasena(""); setMensaje("");
   }
 
   function abrirDetalle(c: Credencial) {
@@ -104,76 +96,166 @@ export default function DashboardPage() {
     setMostrarContrasena(false);
   }
 
+  function getInicial(nombre: string) {
+    return nombre.charAt(0).toUpperCase();
+  }
+
+  // Color único por inicial para los avatares
+  const avatarColors = ["#6366F1", "#22D3EE", "#A78BFA", "#34D399", "#F472B6", "#FB923C"];
+  function getAvatarColor(nombre: string) {
+    return avatarColors[nombre.charCodeAt(0) % avatarColors.length];
+  }
+
   return (
-    <div className="flex h-screen bg-gray-100 text-black font-sans">
+    <div className="flex h-screen font-sans" style={{ background: "#0F172A", color: "#F8FAFC" }}>
+
       {/* Barra Lateral */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col justify-between p-6">
+      <aside
+        className="w-64 flex flex-col justify-between py-8 px-5 border-r"
+        style={{ background: "#1E293B", borderColor: "#334155" }}
+      >
         <div>
-          <h1 className="text-2xl font-bold mb-8 text-blue-700">PassCore</h1>
-          <nav className="flex flex-col gap-4">
-            <button className="text-left font-bold py-2 px-4 rounded-xl bg-blue-50 text-blue-700">
+          {/* Logo */}
+          <div className="mb-10 px-2">
+            <h1 className="text-2xl font-black tracking-tight" style={{ color: "#6366F1" }}>
+              PassCore
+            </h1>
+            <p className="text-xs mt-1 font-medium" style={{ color: "#94A3B8" }}>
+              Gestor de contraseñas
+            </p>
+          </div>
+
+          {/* Nav */}
+          <nav className="flex flex-col gap-1">
+            <button
+              className="text-left font-semibold py-2.5 px-4 rounded-xl flex items-center gap-3 text-sm transition-all"
+              style={{ background: "#6366F1", color: "#F8FAFC" }}
+            >
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
               Tus Contraseñas
             </button>
           </nav>
         </div>
-        <div className="flex items-center gap-3 font-bold text-sm text-gray-700">
-          <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">👤</div>
-          <div className="flex flex-col min-w-0">
-            {nombreCompleto && <span className="font-bold truncate">{nombreCompleto}</span>}
-            <span className="truncate text-xs text-gray-500">{email || "Cargando..."}</span>
+
+        {/* Usuario */}
+        <div className="rounded-2xl p-4 border" style={{ background: "#0F172A", borderColor: "#334155" }}>
+          <div className="flex items-center gap-3">
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center font-black text-white text-sm shrink-0"
+              style={{ background: "#6366F1" }}
+            >
+              {(nombreCompleto || email).charAt(0).toUpperCase()}
+            </div>
+            <div className="flex flex-col min-w-0">
+              {nombreCompleto && (
+                <span className="font-semibold truncate text-sm" style={{ color: "#F8FAFC" }}>
+                  {nombreCompleto}
+                </span>
+              )}
+              <span className="truncate text-xs" style={{ color: "#94A3B8" }}>
+                {email || "Cargando..."}
+              </span>
+            </div>
           </div>
         </div>
       </aside>
 
       {/* Panel Principal */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-end px-6">
+
+        {/* Header */}
+        <header
+          className="h-16 flex items-center justify-between px-8 border-b"
+          style={{ background: "#1E293B", borderColor: "#334155" }}
+        >
+          <p className="font-semibold text-sm" style={{ color: "#94A3B8" }}>
+            {credenciales.length > 0
+              ? `${credenciales.length} contraseña${credenciales.length !== 1 ? "s" : ""} guardada${credenciales.length !== 1 ? "s" : ""}`
+              : "Bienvenido a PassCore"}
+          </p>
           <button
             onClick={handleSignOut}
-            className="border border-gray-300 px-4 py-2 rounded-xl font-bold text-sm hover:bg-gray-100 transition-colors"
+            className="px-4 py-2 rounded-xl font-semibold text-sm transition-all border"
+            style={{ borderColor: "#334155", color: "#94A3B8", background: "transparent" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#6366F1"; e.currentTarget.style.color = "#F8FAFC"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#334155"; e.currentTarget.style.color = "#94A3B8"; }}
           >
             Cerrar Sesión
           </button>
         </header>
 
+        {/* Contenido */}
         <div className="flex-1 overflow-y-auto p-8">
           {credenciales.length === 0 ? (
             <div className="flex items-center justify-center h-full">
-              <div className="border border-gray-300 p-12 text-center max-w-xl w-full bg-white rounded-2xl shadow-sm">
-                <h2 className="text-2xl font-bold text-gray-800 mb-8 uppercase tracking-wide">
-                  Agregar Nueva Contraseña
-                </h2>
+              <div
+                className="text-center p-14 rounded-3xl border max-w-sm w-full"
+                style={{ background: "#1E293B", borderColor: "#334155" }}
+              >
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6"
+                  style={{ background: "#6366F120" }}
+                >
+                  <svg width="28" height="28" fill="none" stroke="#6366F1" strokeWidth="2" viewBox="0 0 24 24">
+                    <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                </div>
+                <h3 className="text-xl font-black mb-2" style={{ color: "#F8FAFC" }}>
+                  Sin contraseñas aún
+                </h3>
+                <p className="text-sm mb-8" style={{ color: "#94A3B8" }}>
+                  Guardá tus credenciales de forma segura y accedé desde cualquier lugar.
+                </p>
                 <button
                   onClick={() => setModalAbierto(true)}
-                  className="bg-blue-700 text-white font-bold py-4 px-8 rounded-xl shadow-md hover:bg-blue-800 transition-all"
+                  className="font-bold py-3 px-8 rounded-xl transition-all w-full"
+                  style={{ background: "#6366F1", color: "#F8FAFC" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#4F46E5")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "#6366F1")}
                 >
-                  + Contraseña
+                  + Agregar Contraseña
                 </button>
               </div>
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-2xl mx-auto">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-800">Tus Contraseñas</h2>
+                <h3 className="text-base font-bold" style={{ color: "#F8FAFC" }}>
+                  Todas las contraseñas
+                </h3>
                 <button
                   onClick={() => setModalAbierto(true)}
-                  className="bg-blue-700 text-white font-bold py-2 px-6 rounded-xl shadow-md hover:bg-blue-800 transition-all"
+                  className="font-bold py-2 px-5 rounded-xl text-sm transition-all"
+                  style={{ background: "#6366F1", color: "#F8FAFC" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#4F46E5")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "#6366F1")}
                 >
                   + Contraseña
                 </button>
               </div>
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
                 {credenciales.map((c) => (
                   <div
                     key={c.id}
                     onClick={() => abrirDetalle(c)}
-                    className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex justify-between items-center cursor-pointer hover:border-blue-300 hover:shadow-md transition-all"
+                    className="rounded-2xl px-5 py-4 flex items-center gap-4 cursor-pointer transition-all border"
+                    style={{ background: "#1E293B", borderColor: "#334155" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#6366F1"; e.currentTarget.style.background = "#1E293B"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "#334155"; e.currentTarget.style.background = "#1E293B"; }}
                   >
-                    <div>
-                      <p className="font-bold text-gray-800 text-lg">{c.sitio}</p>
-                      <p className="text-sm text-gray-500">{c.nombre_usuario}</p>
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-base shrink-0"
+                      style={{ background: getAvatarColor(c.sitio) }}
+                    >
+                      {getInicial(c.sitio)}
                     </div>
-                    <span className="text-gray-400 font-mono tracking-widest">••••••••</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold truncate text-sm" style={{ color: "#F8FAFC" }}>{c.sitio}</p>
+                      <p className="text-xs truncate" style={{ color: "#94A3B8" }}>{c.nombre_usuario}</p>
+                    </div>
+                    <span className="font-mono text-sm tracking-widest" style={{ color: "#334155" }}>••••••</span>
                   </div>
                 ))}
               </div>
@@ -184,52 +266,50 @@ export default function DashboardPage() {
 
       {/* Modal nueva contraseña */}
       {modalAbierto && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4">
-            <h2 className="text-xl font-bold text-gray-800 mb-6 uppercase tracking-wide">Nueva Contraseña</h2>
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: "rgba(15,23,42,0.85)" }}>
+          <div
+            className="rounded-3xl shadow-2xl p-8 w-full max-w-md mx-4 border"
+            style={{ background: "#1E293B", borderColor: "#334155" }}
+          >
+            <h2 className="text-lg font-black mb-6" style={{ color: "#F8FAFC" }}>Nueva Contraseña</h2>
             <div className="flex flex-col gap-4">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Sitio / App</label>
-                <input
-                  type="text"
-                  placeholder="ej: Google, Netflix..."
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-700 text-gray-900"
-                  value={sitio}
-                  onChange={(e) => setSitio(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Usuario / Email</label>
-                <input
-                  type="text"
-                  placeholder="tu@email.com"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-700 text-gray-900"
-                  value={nombreUsuario}
-                  onChange={(e) => setNombreUsuario(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Contraseña</label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-700 text-gray-900"
-                  value={contrasena}
-                  onChange={(e) => setContrasena(e.target.value)}
-                />
-              </div>
-              {mensaje && <p className="text-red-600 text-sm font-bold">{mensaje}</p>}
+              {[
+                { label: "Sitio / App", value: sitio, setter: setSitio, placeholder: "ej: Google, Netflix...", type: "text" },
+                { label: "Usuario / Email", value: nombreUsuario, setter: setNombreUsuario, placeholder: "tu@email.com", type: "text" },
+                { label: "Contraseña", value: contrasena, setter: setContrasena, placeholder: "••••••••", type: "password" },
+              ].map(({ label, value, setter, placeholder, type }) => (
+                <div key={label}>
+                  <label className="block text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: "#94A3B8" }}>
+                    {label}
+                  </label>
+                  <input
+                    type={type}
+                    placeholder={placeholder}
+                    className="w-full px-4 py-3 rounded-xl border outline-none text-sm font-medium transition-all"
+                    style={{ background: "#0F172A", borderColor: "#334155", color: "#F8FAFC" }}
+                    onFocus={e => (e.currentTarget.style.borderColor = "#6366F1")}
+                    onBlur={e => (e.currentTarget.style.borderColor = "#334155")}
+                    value={value}
+                    onChange={(e) => setter(e.target.value)}
+                  />
+                </div>
+              ))}
+              {mensaje && <p className="text-xs font-bold" style={{ color: "#F472B6" }}>{mensaje}</p>}
               <div className="flex gap-3 mt-2">
                 <button
                   onClick={cerrarModal}
-                  className="flex-1 border border-gray-300 py-3 rounded-xl font-bold text-sm hover:bg-gray-100 transition-colors"
+                  className="flex-1 py-3 rounded-xl font-semibold text-sm border transition-all"
+                  style={{ borderColor: "#334155", color: "#94A3B8", background: "transparent" }}
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleAgregarCredencial}
                   disabled={guardando}
-                  className="flex-1 bg-blue-700 text-white font-bold py-3 rounded-xl hover:bg-blue-800 transition-colors disabled:opacity-50"
+                  className="flex-1 py-3 rounded-xl font-bold text-sm transition-all disabled:opacity-50"
+                  style={{ background: "#6366F1", color: "#F8FAFC" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#4F46E5")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "#6366F1")}
                 >
                   {guardando ? "Guardando..." : "Guardar"}
                 </button>
@@ -239,36 +319,68 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Modal detalle de credencial */}
+      {/* Modal detalle */}
       {credencialSeleccionada && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4">
-            <h2 className="text-xl font-bold text-gray-800 mb-6">{credencialSeleccionada.sitio}</h2>
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: "rgba(15,23,42,0.85)" }}>
+          <div
+            className="rounded-3xl shadow-2xl p-8 w-full max-w-md mx-4 border"
+            style={{ background: "#1E293B", borderColor: "#334155" }}
+          >
+            <div className="flex items-center gap-4 mb-8">
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white text-2xl shrink-0"
+                style={{ background: getAvatarColor(credencialSeleccionada.sitio) }}
+              >
+                {getInicial(credencialSeleccionada.sitio)}
+              </div>
+              <div>
+                <h2 className="text-xl font-black" style={{ color: "#F8FAFC" }}>{credencialSeleccionada.sitio}</h2>
+                <p className="text-xs" style={{ color: "#94A3B8" }}>Credencial guardada</p>
+              </div>
+            </div>
+
             <div className="flex flex-col gap-4">
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Usuario / Email</label>
-                <p className="text-gray-800 font-medium bg-gray-50 px-4 py-3 rounded-xl border border-gray-200">
+                <label className="block text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: "#94A3B8" }}>
+                  Usuario / Email
+                </label>
+                <p
+                  className="px-4 py-3 rounded-xl text-sm font-medium border"
+                  style={{ background: "#0F172A", borderColor: "#334155", color: "#F8FAFC" }}
+                >
                   {credencialSeleccionada.nombre_usuario}
                 </p>
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Contraseña</label>
+                <label className="block text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: "#94A3B8" }}>
+                  Contraseña
+                </label>
                 <div className="flex items-center gap-2">
-                  <p className="flex-1 text-gray-800 font-medium bg-gray-50 px-4 py-3 rounded-xl border border-gray-200 font-mono">
+                  <p
+                    className="flex-1 px-4 py-3 rounded-xl font-mono text-sm border"
+                    style={{ background: "#0F172A", borderColor: "#334155", color: "#F8FAFC" }}
+                  >
                     {mostrarContrasena ? credencialSeleccionada.contrasena_encriptada : "••••••••••••"}
                   </p>
                   <button
                     onClick={() => setMostrarContrasena(!mostrarContrasena)}
-                    className="px-4 py-3 rounded-xl border border-gray-200 hover:bg-gray-100 transition-colors text-lg"
+                    className="px-4 py-3 rounded-xl text-xs font-bold border transition-all"
+                    style={{ borderColor: "#334155", background: "#0F172A", color: "#94A3B8" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#6366F1"; e.currentTarget.style.color = "#6366F1"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "#334155"; e.currentTarget.style.color = "#94A3B8"; }}
                   >
-                    {mostrarContrasena ? "🙈" : "👁"}
+                    {mostrarContrasena ? "Ocultar" : "Ver"}
                   </button>
                 </div>
               </div>
             </div>
+
             <button
               onClick={cerrarDetalle}
-              className="w-full mt-6 border border-gray-300 py-3 rounded-xl font-bold text-sm hover:bg-gray-100 transition-colors"
+              className="w-full mt-8 py-3 rounded-xl font-semibold text-sm border transition-all"
+              style={{ borderColor: "#334155", color: "#94A3B8", background: "transparent" }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "#6366F1"; e.currentTarget.style.color = "#F8FAFC"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "#334155"; e.currentTarget.style.color = "#94A3B8"; }}
             >
               Cerrar
             </button>
