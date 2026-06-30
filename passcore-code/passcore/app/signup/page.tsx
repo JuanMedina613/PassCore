@@ -5,6 +5,23 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
+function traducirError(mensaje: string): string {
+  const errores: Record<string, string> = {
+    'User already registered': 'Ya existe una cuenta con ese correo.',
+    'Password should be at least 6 characters': 'La contraseña debe tener al menos 6 caracteres.',
+    'Unable to validate email address': 'El correo ingresado no es válido.',
+    'Invalid email': 'El correo ingresado no es válido.',
+    'Signup requires a valid password': 'Ingresá una contraseña válida.',
+    'duplicate key value violates unique constraint': 'Ya existe una cuenta con ese correo.',
+  };
+
+  for (const [clave, traduccion] of Object.entries(errores)) {
+    if (mensaje.includes(clave)) return traduccion;
+  }
+
+  return 'Ocurrió un error al registrarte. Intentá de nuevo.';
+}
+
 export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -12,21 +29,25 @@ export default function SignUp() {
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [message, setMessage] = useState('');
+  const [esError, setEsError] = useState(false);
   const router = useRouter();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (password !== confirmPassword) {
-      setMessage('Error: Las contraseñas no coinciden.');
+      setEsError(true);
+      setMessage('Las contraseñas no coinciden.');
       return;
     }
 
+    setEsError(false);
     setMessage('Registrando...');
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
-      setMessage(`Error: ${error.message}`);
+      setEsError(true);
+      setMessage(traducirError(error.message));
       return;
     }
 
@@ -37,11 +58,13 @@ export default function SignUp() {
         .insert({ id: userId, email, nombre, apellido });
 
       if (perfilError) {
-        setMessage(`Error al guardar perfil: ${perfilError.message}`);
+        setEsError(true);
+        setMessage('No se pudo guardar tu perfil. Intentá de nuevo.');
         return;
       }
     }
 
+    setEsError(false);
     setMessage('¡Registro exitoso! Redirigiendo...');
     router.push('/login');
   };
@@ -114,7 +137,7 @@ export default function SignUp() {
             <p
               className="mt-4 text-xs font-bold text-center px-4 py-3 rounded-xl"
               style={
-                message.startsWith('Error')
+                esError
                   ? { background: "#F472B620", color: "#F472B6", border: "1px solid #F472B640" }
                   : { background: "#6366F120", color: "#6366F1", border: "1px solid #6366F140" }
               }

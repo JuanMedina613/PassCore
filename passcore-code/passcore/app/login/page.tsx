@@ -5,6 +5,22 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
+function traducirError(mensaje: string): string {
+  const errores: Record<string, string> = {
+    'Invalid login credentials': 'Correo o contraseña incorrectos.',
+    'Email not confirmed': 'Tenés que confirmar tu correo antes de ingresar.',
+    'User not found': 'No existe una cuenta con ese correo.',
+    'Too many requests': 'Demasiados intentos. Esperá unos minutos e intentá de nuevo.',
+    'Invalid email': 'El correo ingresado no es válido.',
+  };
+
+  for (const [clave, traduccion] of Object.entries(errores)) {
+    if (mensaje.includes(clave)) return traduccion;
+  }
+
+  return 'Ocurrió un error al iniciar sesión. Intentá de nuevo.';
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,7 +32,7 @@ export default function LoginPage() {
     setError(null);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      setError(error.message);
+      setError(traducirError(error.message));
     } else {
       router.push('/dashboard');
     }
