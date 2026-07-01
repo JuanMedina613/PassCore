@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
+import CryptoJS from "crypto-js";
 
 interface Credencial {
   id: string;
@@ -11,9 +12,26 @@ interface Credencial {
   contrasena_encriptada: string;
 }
 
+// Encripta un texto con AES usando la contraseña del usuario como clave
+function encriptar(texto: string, clave: string): string {
+  return CryptoJS.AES.encrypt(texto, clave).toString();
+}
+
+// Desencripta un texto con AES
+function desencriptar(textoCifrado: string, clave: string): string {
+  try {
+    const bytes = CryptoJS.AES.decrypt(textoCifrado, clave);
+    const resultado = bytes.toString(CryptoJS.enc.Utf8);
+    return resultado || textoCifrado; // si falla, devuelve el texto original
+  } catch {
+    return textoCifrado;
+  }
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [claveEncriptacion, setClaveEncriptacion] = useState("");
   const [nombreCompleto, setNombreCompleto] = useState("");
   const [credenciales, setCredenciales] = useState<Credencial[]>([]);
   const [modoOscuro, setModoOscuro] = useState(true);
@@ -29,7 +47,6 @@ export default function DashboardPage() {
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [confirmandoEliminar, setConfirmandoEliminar] = useState<Credencial | null>(null);
 
-  // Modificar
   const [modoEdicion, setModoEdicion] = useState(false);
   const [sitioEdit, setSitioEdit] = useState("");
   const [usuarioEdit, setUsuarioEdit] = useState("");
@@ -38,7 +55,6 @@ export default function DashboardPage() {
   const [guardandoEdit, setGuardandoEdit] = useState(false);
   const [mensajeEdit, setMensajeEdit] = useState("");
 
-  // Configuración
   const [configAbierta, setConfigAbierta] = useState(false);
   const [seccionActiva, setSeccionActiva] = useState<"perfil" | "password" | "peligro" | null>("perfil");
   const [nombreEdit, setNombreEdit] = useState("");
@@ -64,6 +80,11 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       setEmail(user.email ?? "");
+
+      // Usamos el ID del usuario como clave de encriptación base
+      // combinado con un prefijo fijo para más seguridad
+      setClaveEncriptacion(`passcore_${user.id}`);
+
       const { data: perfil } = await supabase
         .from("perfiles")
         .select("nombre, apellido")
@@ -76,15 +97,25 @@ export default function DashboardPage() {
       }
     }
     getUser();
-    cargarCredenciales();
   }, []);
+
+  useEffect(() => {
+    if (claveEncriptacion) cargarCredenciales();
+  }, [claveEncriptacion]);
 
   async function cargarCredenciales() {
     const { data, error } = await supabase
       .from("credenciales")
       .select("*")
       .order("sitio", { ascending: true });
-    if (!error && data) setCredenciales(data);
+    if (!error && data) {
+      // Desencriptamos cada contraseña al cargar
+      const desencriptadas = data.map((c) => ({
+        ...c,
+        contrasena_encriptada: desencriptar(c.contrasena_encriptada, claveEncriptacion),
+      }));
+      setCredenciales(desencriptadas);
+    }
   }
 
   async function handleSignOut() {
@@ -99,11 +130,15 @@ export default function DashboardPage() {
     }
     setGuardando(true);
     const { data: { user } } = await supabase.auth.getUser();
+
+    // Encriptamos la contraseña antes de guardarla
+    const contrasenaEncriptada = encriptar(contrasena, claveEncriptacion);
+
     const { error } = await supabase.from("credenciales").insert({
       user_id: user?.id,
       sitio,
       nombre_usuario: nombreUsuario,
-      contrasena_encriptada: contrasena,
+      contrasena_encriptada: contrasenaEncriptada,
     });
     if (error) {
       setMensaje(`Error: ${error.message}`);
@@ -137,7 +172,7 @@ export default function DashboardPage() {
   function activarEdicion(c: Credencial) {
     setSitioEdit(c.sitio);
     setUsuarioEdit(c.nombre_usuario);
-    setContrasenaEdit(c.contrasena_encriptada);
+    setContrasenaEdit(c.contrasena_encriptada); // ya viene desencriptada
     setMostrarContrasenaEdit(false);
     setMensajeEdit("");
     setModoEdicion(true);
@@ -156,19 +191,28 @@ export default function DashboardPage() {
     if (!credencialSeleccionada) return;
 
     setGuardandoEdit(true);
+
+    // Encriptamos antes de guardar
+    const contrasenaEncriptada = encriptar(contrasenaEdit, claveEncriptacion);
+
     const { error } = await supabase
       .from("credenciales")
       .update({
         sitio: sitioEdit,
         nombre_usuario: usuarioEdit,
-        contrasena_encriptada: contrasenaEdit,
+        contrasena_encriptada: contrasenaEncriptada,
       })
       .eq("id", credencialSeleccionada.id);
 
     if (error) {
       setMensajeEdit("Error al guardar los cambios.");
     } else {
-      const actualizada = { ...credencialSeleccionada, sitio: sitioEdit, nombre_usuario: usuarioEdit, contrasena_encriptada: contrasenaEdit };
+      const actualizada = {
+        ...credencialSeleccionada,
+        sitio: sitioEdit,
+        nombre_usuario: usuarioEdit,
+        contrasena_encriptada: contrasenaEdit, // mostramos la desencriptada en pantalla
+      };
       setCredencialSeleccionada(actualizada);
       setModoEdicion(false);
       setMensajeEdit("");
@@ -411,7 +455,6 @@ export default function DashboardPage() {
       {credencialSeleccionada && (
         <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: "rgba(15,23,42,0.85)" }}>
           <div className="rounded-3xl shadow-2xl p-8 w-full max-w-md mx-4 border" style={{ background: colores.panel, borderColor: colores.borde }}>
-
             <div className="flex items-center gap-4 mb-6">
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white text-2xl shrink-0" style={{ background: getAvatarColor(modoEdicion ? sitioEdit : credencialSeleccionada.sitio) }}>
                 {getInicial(modoEdicion ? sitioEdit || credencialSeleccionada.sitio : credencialSeleccionada.sitio)}
@@ -427,65 +470,33 @@ export default function DashboardPage() {
             </div>
 
             {modoEdicion ? (
-              // MODO EDICIÓN
               <div className="flex flex-col gap-4">
                 <div>
                   <label className="block text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: colores.textoSec }}>Sitio / App</label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 rounded-xl border outline-none text-sm font-medium"
-                    style={{ background: colores.fondo, borderColor: colores.borde, color: colores.texto }}
-                    onFocus={e => (e.currentTarget.style.borderColor = "#6366F1")}
-                    onBlur={e => (e.currentTarget.style.borderColor = colores.borde)}
-                    value={sitioEdit}
-                    onChange={(e) => setSitioEdit(e.target.value)}
-                  />
+                  <input type="text" className="w-full px-4 py-3 rounded-xl border outline-none text-sm font-medium" style={{ background: colores.fondo, borderColor: colores.borde, color: colores.texto }} onFocus={e => (e.currentTarget.style.borderColor = "#6366F1")} onBlur={e => (e.currentTarget.style.borderColor = colores.borde)} value={sitioEdit} onChange={(e) => setSitioEdit(e.target.value)} />
                 </div>
                 <div>
                   <label className="block text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: colores.textoSec }}>Usuario / Email</label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 rounded-xl border outline-none text-sm font-medium"
-                    style={{ background: colores.fondo, borderColor: colores.borde, color: colores.texto }}
-                    onFocus={e => (e.currentTarget.style.borderColor = "#6366F1")}
-                    onBlur={e => (e.currentTarget.style.borderColor = colores.borde)}
-                    value={usuarioEdit}
-                    onChange={(e) => setUsuarioEdit(e.target.value)}
-                  />
+                  <input type="text" className="w-full px-4 py-3 rounded-xl border outline-none text-sm font-medium" style={{ background: colores.fondo, borderColor: colores.borde, color: colores.texto }} onFocus={e => (e.currentTarget.style.borderColor = "#6366F1")} onBlur={e => (e.currentTarget.style.borderColor = colores.borde)} value={usuarioEdit} onChange={(e) => setUsuarioEdit(e.target.value)} />
                 </div>
                 <div>
                   <label className="block text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: colores.textoSec }}>Contraseña</label>
                   <div className="flex gap-2">
-                    <input
-                      type={mostrarContrasenaEdit ? "text" : "password"}
-                      className="flex-1 px-4 py-3 rounded-xl border outline-none text-sm font-medium font-mono"
-                      style={{ background: colores.fondo, borderColor: colores.borde, color: colores.texto }}
-                      onFocus={e => (e.currentTarget.style.borderColor = "#6366F1")}
-                      onBlur={e => (e.currentTarget.style.borderColor = colores.borde)}
-                      value={contrasenaEdit}
-                      onChange={(e) => setContrasenaEdit(e.target.value)}
-                    />
-                    <button
-                      onClick={() => setMostrarContrasenaEdit(!mostrarContrasenaEdit)}
-                      className="px-4 py-3 rounded-xl text-xs font-bold border"
-                      style={{ borderColor: colores.borde, background: colores.fondo, color: colores.textoSec }}
-                    >
+                    <input type={mostrarContrasenaEdit ? "text" : "password"} className="flex-1 px-4 py-3 rounded-xl border outline-none text-sm font-medium font-mono" style={{ background: colores.fondo, borderColor: colores.borde, color: colores.texto }} onFocus={e => (e.currentTarget.style.borderColor = "#6366F1")} onBlur={e => (e.currentTarget.style.borderColor = colores.borde)} value={contrasenaEdit} onChange={(e) => setContrasenaEdit(e.target.value)} />
+                    <button onClick={() => setMostrarContrasenaEdit(!mostrarContrasenaEdit)} className="px-4 py-3 rounded-xl text-xs font-bold border" style={{ borderColor: colores.borde, background: colores.fondo, color: colores.textoSec }}>
                       {mostrarContrasenaEdit ? "Ocultar" : "Ver"}
                     </button>
                   </div>
                 </div>
                 {mensajeEdit && <p className="text-xs font-bold" style={{ color: "#F472B6" }}>{mensajeEdit}</p>}
                 <div className="flex gap-3 mt-2">
-                  <button onClick={cancelarEdicion} className="flex-1 py-3 rounded-xl font-semibold text-sm border" style={{ borderColor: colores.borde, color: colores.textoSec, background: "transparent" }}>
-                    Cancelar
-                  </button>
+                  <button onClick={cancelarEdicion} className="flex-1 py-3 rounded-xl font-semibold text-sm border" style={{ borderColor: colores.borde, color: colores.textoSec, background: "transparent" }}>Cancelar</button>
                   <button onClick={handleGuardarEdicion} disabled={guardandoEdit} className="flex-1 py-3 rounded-xl font-bold text-sm disabled:opacity-50" style={{ background: "#6366F1", color: "#F8FAFC" }}>
                     {guardandoEdit ? "Guardando..." : "Guardar cambios"}
                   </button>
                 </div>
               </div>
             ) : (
-              // MODO VISTA
               <div className="flex flex-col gap-4">
                 <div>
                   <label className="block text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: colores.textoSec }}>Usuario / Email</label>
@@ -499,39 +510,16 @@ export default function DashboardPage() {
                     <p className="flex-1 px-4 py-3 rounded-xl font-mono text-sm border" style={{ background: colores.fondo, borderColor: colores.borde, color: colores.texto }}>
                       {mostrarContrasena ? credencialSeleccionada.contrasena_encriptada : "••••••••••••"}
                     </p>
-                    <button
-                      onClick={() => setMostrarContrasena(!mostrarContrasena)}
-                      className="px-4 py-3 rounded-xl text-xs font-bold border"
-                      style={{ borderColor: colores.borde, background: colores.fondo, color: colores.textoSec }}
-                    >
+                    <button onClick={() => setMostrarContrasena(!mostrarContrasena)} className="px-4 py-3 rounded-xl text-xs font-bold border" style={{ borderColor: colores.borde, background: colores.fondo, color: colores.textoSec }}>
                       {mostrarContrasena ? "Ocultar" : "Ver"}
                     </button>
                   </div>
                 </div>
-
                 <div className="flex gap-2 mt-2">
-                  <button
-                    onClick={() => activarEdicion(credencialSeleccionada)}
-                    className="flex-1 py-3 rounded-xl font-semibold text-sm border transition-all"
-                    style={{ borderColor: "#6366F1", color: "#6366F1", background: "transparent" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "#6366F120")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                  >
-                    Modificar
-                  </button>
-                  <button
-                    onClick={() => setConfirmandoEliminar(credencialSeleccionada)}
-                    className="flex-1 py-3 rounded-xl font-semibold text-sm border transition-all"
-                    style={{ borderColor: "#F472B640", color: "#F472B6", background: "transparent" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "#F472B620")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                  >
-                    Eliminar
-                  </button>
+                  <button onClick={() => activarEdicion(credencialSeleccionada)} className="flex-1 py-3 rounded-xl font-semibold text-sm border transition-all" style={{ borderColor: "#6366F1", color: "#6366F1", background: "transparent" }} onMouseEnter={e => (e.currentTarget.style.background = "#6366F120")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Modificar</button>
+                  <button onClick={() => setConfirmandoEliminar(credencialSeleccionada)} className="flex-1 py-3 rounded-xl font-semibold text-sm border transition-all" style={{ borderColor: "#F472B640", color: "#F472B6", background: "transparent" }} onMouseEnter={e => (e.currentTarget.style.background = "#F472B620")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>Eliminar</button>
                 </div>
-                <button onClick={cerrarDetalle} className="w-full py-3 rounded-xl font-semibold text-sm border" style={{ borderColor: colores.borde, color: colores.textoSec, background: "transparent" }}>
-                  Cerrar
-                </button>
+                <button onClick={cerrarDetalle} className="w-full py-3 rounded-xl font-semibold text-sm border" style={{ borderColor: colores.borde, color: colores.textoSec, background: "transparent" }}>Cerrar</button>
               </div>
             )}
           </div>
@@ -543,9 +531,7 @@ export default function DashboardPage() {
         <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: "rgba(15,23,42,0.9)" }}>
           <div className="rounded-3xl shadow-2xl p-8 w-full max-w-sm mx-4 border text-center" style={{ background: colores.panel, borderColor: colores.borde }}>
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-6" style={{ background: "#F472B620" }}>
-              <svg width="24" height="24" fill="none" stroke="#F472B6" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
-              </svg>
+              <svg width="24" height="24" fill="none" stroke="#F472B6" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
             </div>
             <h2 className="text-lg font-black mb-2" style={{ color: colores.texto }}>¿Estás seguro?</h2>
             <p className="text-sm mb-8" style={{ color: colores.textoSec }}>
@@ -571,7 +557,6 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-4">
-
               <div className="rounded-2xl border overflow-hidden" style={{ borderColor: colores.borde }}>
                 <button onClick={() => toggleSeccion("perfil")} className="w-full flex items-center justify-between p-5 text-left" style={{ background: colores.fondo }}>
                   <div className="flex items-center gap-3">
@@ -583,9 +568,7 @@ export default function DashboardPage() {
                       <p className="text-xs" style={{ color: colores.textoSec }}>Nombre y apellido</p>
                     </div>
                   </div>
-                  <svg width="18" height="18" fill="none" stroke={colores.textoSec} strokeWidth="2" viewBox="0 0 24 24" style={{ transform: seccionActiva === "perfil" ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
-                    <path d="M6 9l6 6 6-6"/>
-                  </svg>
+                  <svg width="18" height="18" fill="none" stroke={colores.textoSec} strokeWidth="2" viewBox="0 0 24 24" style={{ transform: seccionActiva === "perfil" ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}><path d="M6 9l6 6 6-6"/></svg>
                 </button>
                 {seccionActiva === "perfil" && (
                   <div className="p-5 pt-0">
@@ -618,9 +601,7 @@ export default function DashboardPage() {
                       <p className="text-xs" style={{ color: colores.textoSec }}>Actualizá tu contraseña de acceso</p>
                     </div>
                   </div>
-                  <svg width="18" height="18" fill="none" stroke={colores.textoSec} strokeWidth="2" viewBox="0 0 24 24" style={{ transform: seccionActiva === "password" ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
-                    <path d="M6 9l6 6 6-6"/>
-                  </svg>
+                  <svg width="18" height="18" fill="none" stroke={colores.textoSec} strokeWidth="2" viewBox="0 0 24 24" style={{ transform: seccionActiva === "password" ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}><path d="M6 9l6 6 6-6"/></svg>
                 </button>
                 {seccionActiva === "password" && (
                   <div className="p-5 pt-0">
@@ -659,9 +640,7 @@ export default function DashboardPage() {
                       <p className="text-xs" style={{ color: colores.textoSec }}>Borrar tu cuenta permanentemente</p>
                     </div>
                   </div>
-                  <svg width="18" height="18" fill="none" stroke={colores.textoSec} strokeWidth="2" viewBox="0 0 24 24" style={{ transform: seccionActiva === "peligro" ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
-                    <path d="M6 9l6 6 6-6"/>
-                  </svg>
+                  <svg width="18" height="18" fill="none" stroke={colores.textoSec} strokeWidth="2" viewBox="0 0 24 24" style={{ transform: seccionActiva === "peligro" ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}><path d="M6 9l6 6 6-6"/></svg>
                 </button>
                 {seccionActiva === "peligro" && (
                   <div className="p-5 pt-0">
@@ -690,7 +669,6 @@ export default function DashboardPage() {
                   </div>
                 )}
               </div>
-
             </div>
 
             <div className="p-8 pt-4 border-t" style={{ borderColor: colores.borde }}>
