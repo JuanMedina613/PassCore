@@ -45,16 +45,15 @@ Si bien PassCore es un espacio seguro donde podés administrar tus contraseñas 
 ## 🚀 Cómo instalarlo y correrlo localmente
 
 ### 1. Clonar el repositorio e instalar dependencias
-Asegúrate de tener Node.js instalado. Abre tu terminal y ejecuta:
+Asegúrate de tener Node.js instalado y haber copiado el Repositorio en tu computadora, Luego necesitas la direccion en donde se encuentra PassCore  (Se deberia ver algo asi *...PassCore\passcore-code\passcore*), Luego Abre la tarminal y escribe lo siguiente
 
 ```bash
-git clone [URL_DE_TU_REPOSITORIO]
-cd passcore
+cd [Direccion_de_Passcore]
 npm install
 ```
 
 ### 2. Configurar Variables de Entorno
-Crea un archivo llamado `.env.local` en la raíz del proyecto y agrega tus credenciales de Supabase. Asegúrate de borrar la terminación `/rest/v1` en la URL para evitar errores de conexión:
+Crea un archivo llamado `.env.local` en la direccion de donde estabas *...PassCore\passcore-code\passcore* y agrega tus credenciales de Supabase.
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=tu_url_de_supabase_sin_rest_v1
