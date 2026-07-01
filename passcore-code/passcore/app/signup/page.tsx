@@ -14,11 +14,9 @@ function traducirError(mensaje: string): string {
     'Signup requires a valid password': 'Ingresá una contraseña válida.',
     'duplicate key value violates unique constraint': 'Ya existe una cuenta con ese correo.',
   };
-
   for (const [clave, traduccion] of Object.entries(errores)) {
     if (mensaje.includes(clave)) return traduccion;
   }
-
   return 'Ocurrió un error al registrarte. Intentá de nuevo.';
 }
 
@@ -34,38 +32,18 @@ export default function SignUp() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (password !== confirmPassword) {
-      setEsError(true);
-      setMessage('Las contraseñas no coinciden.');
-      return;
+      setEsError(true); setMessage('Las contraseñas no coinciden.'); return;
     }
-
-    setEsError(false);
-    setMessage('Registrando...');
+    setEsError(false); setMessage('Registrando...');
     const { data, error } = await supabase.auth.signUp({ email, password });
-
-    if (error) {
-      setEsError(true);
-      setMessage(traducirError(error.message));
-      return;
-    }
-
+    if (error) { setEsError(true); setMessage(traducirError(error.message)); return; }
     const userId = data.user?.id;
     if (userId) {
-      const { error: perfilError } = await supabase
-        .from('perfiles')
-        .insert({ id: userId, email, nombre, apellido });
-
-      if (perfilError) {
-        setEsError(true);
-        setMessage('No se pudo guardar tu perfil. Intentá de nuevo.');
-        return;
-      }
+      const { error: perfilError } = await supabase.from('perfiles').insert({ id: userId, email, nombre, apellido });
+      if (perfilError) { setEsError(true); setMessage('No se pudo guardar tu perfil. Intentá de nuevo.'); return; }
     }
-
-    setEsError(false);
-    setMessage('¡Registro exitoso! Redirigiendo...');
+    setEsError(false); setMessage('¡Registro exitoso! Redirigiendo...');
     router.push('/login');
   };
 
@@ -77,9 +55,9 @@ export default function SignUp() {
           <p className="text-sm font-medium" style={{ color: "#94A3B8" }}>Creá tu cuenta gratis</p>
         </div>
 
-        <div className="rounded-3xl border p-8" style={{ background: "#1E293B", borderColor: "#334155" }}>
+        <div className="rounded-3xl border p-6 md:p-8" style={{ background: "#1E293B", borderColor: "#334155" }}>
           <form onSubmit={handleSignUp} className="flex flex-col gap-5">
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               {[
                 { label: "Nombre", value: nombre, setter: setNombre, placeholder: "Juan" },
                 { label: "Apellido", value: apellido, setter: setApellido, placeholder: "García" },
@@ -87,12 +65,10 @@ export default function SignUp() {
                 <div key={label} className="flex-1">
                   <label className="block text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: "#94A3B8" }}>{label}</label>
                   <input
-                    type="text"
-                    placeholder={placeholder}
+                    type="text" placeholder={placeholder}
                     className="w-full px-4 py-3 rounded-xl border outline-none text-sm font-medium transition-all"
                     style={{ background: "#0F172A", borderColor: "#334155", color: "#F8FAFC" }}
-                    value={value}
-                    onChange={(e) => setter(e.target.value)}
+                    value={value} onChange={(e) => setter(e.target.value)}
                     onFocus={e => (e.currentTarget.style.borderColor = "#6366F1")}
                     onBlur={e => (e.currentTarget.style.borderColor = "#334155")}
                     required
@@ -109,12 +85,10 @@ export default function SignUp() {
               <div key={label}>
                 <label className="block text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: "#94A3B8" }}>{label}</label>
                 <input
-                  type={type}
-                  placeholder={placeholder}
+                  type={type} placeholder={placeholder}
                   className="w-full px-4 py-3 rounded-xl border outline-none text-sm font-medium transition-all"
                   style={{ background: "#0F172A", borderColor: "#334155", color: "#F8FAFC" }}
-                  value={value}
-                  onChange={(e) => setter(e.target.value)}
+                  value={value} onChange={(e) => setter(e.target.value)}
                   onFocus={e => (e.currentTarget.style.borderColor = "#6366F1")}
                   onBlur={e => (e.currentTarget.style.borderColor = "#334155")}
                   required
@@ -134,12 +108,10 @@ export default function SignUp() {
           </form>
 
           {message && (
-            <p
-              className="mt-4 text-xs font-bold text-center px-4 py-3 rounded-xl"
-              style={
-                esError
-                  ? { background: "#F472B620", color: "#F472B6", border: "1px solid #F472B640" }
-                  : { background: "#6366F120", color: "#6366F1", border: "1px solid #6366F140" }
+            <p className="mt-4 text-xs font-bold text-center px-4 py-3 rounded-xl"
+              style={esError
+                ? { background: "#F472B620", color: "#F472B6", border: "1px solid #F472B640" }
+                : { background: "#6366F120", color: "#6366F1", border: "1px solid #6366F140" }
               }
             >
               {message}
@@ -147,9 +119,7 @@ export default function SignUp() {
           )}
 
           <div className="mt-6 text-center">
-            <Link href="/login" className="text-xs font-medium" style={{ color: "#94A3B8" }}>
-              ← Volver al login
-            </Link>
+            <Link href="/login" className="text-xs font-medium" style={{ color: "#94A3B8" }}>← Volver al login</Link>
           </div>
         </div>
       </div>

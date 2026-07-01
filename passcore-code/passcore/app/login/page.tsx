@@ -13,11 +13,9 @@ function traducirError(mensaje: string): string {
     'Too many requests': 'Demasiados intentos. Esperá unos minutos e intentá de nuevo.',
     'Invalid email': 'El correo ingresado no es válido.',
   };
-
   for (const [clave, traduccion] of Object.entries(errores)) {
     if (mensaje.includes(clave)) return traduccion;
   }
-
   return 'Ocurrió un error al iniciar sesión. Intentá de nuevo.';
 }
 
@@ -46,7 +44,7 @@ export default function LoginPage() {
           <p className="text-sm font-medium" style={{ color: "#94A3B8" }}>Iniciá sesión en tu bóveda</p>
         </div>
 
-        <div className="rounded-3xl border p-8" style={{ background: "#1E293B", borderColor: "#334155" }}>
+        <div className="rounded-3xl border p-6 md:p-8" style={{ background: "#1E293B", borderColor: "#334155" }}>
           {error && (
             <p className="text-xs font-bold mb-6 px-4 py-3 rounded-xl" style={{ background: "#F472B620", color: "#F472B6", border: "1px solid #F472B640" }}>
               {error}
@@ -55,13 +53,9 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="flex flex-col gap-5">
             <div>
-              <label className="block text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: "#94A3B8" }}>
-                Correo Electrónico
-              </label>
+              <label className="block text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: "#94A3B8" }}>Correo Electrónico</label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                 placeholder="tu@email.com"
                 className="w-full px-4 py-3 rounded-xl border outline-none text-sm font-medium transition-all"
                 style={{ background: "#0F172A", borderColor: "#334155", color: "#F8FAFC" }}
@@ -72,13 +66,9 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: "#94A3B8" }}>
-                Contraseña
-              </label>
+              <label className="block text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: "#94A3B8" }}>Contraseña</label>
               <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                type="password" value={password} onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="w-full px-4 py-3 rounded-xl border outline-none text-sm font-medium transition-all"
                 style={{ background: "#0F172A", borderColor: "#334155", color: "#F8FAFC" }}
@@ -102,13 +92,9 @@ export default function LoginPage() {
           <div className="mt-6 flex flex-col gap-2 text-center">
             <p className="text-xs" style={{ color: "#94A3B8" }}>
               ¿No tenés cuenta?{" "}
-              <Link href="/signup" className="font-bold" style={{ color: "#6366F1" }}>
-                Registrate acá
-              </Link>
+              <Link href="/signup" className="font-bold" style={{ color: "#6366F1" }}>Registrate acá</Link>
             </p>
-            <Link href="/" className="text-xs font-medium" style={{ color: "#94A3B8" }}>
-              ← Volver al inicio
-            </Link>
+            <Link href="/" className="text-xs font-medium" style={{ color: "#94A3B8" }}>← Volver al inicio</Link>
           </div>
         </div>
       </div>

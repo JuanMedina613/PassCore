@@ -12,17 +12,15 @@ interface Credencial {
   contrasena_encriptada: string;
 }
 
-// Encripta un texto con AES usando la contraseña del usuario como clave
 function encriptar(texto: string, clave: string): string {
   return CryptoJS.AES.encrypt(texto, clave).toString();
 }
 
-// Desencripta un texto con AES
 function desencriptar(textoCifrado: string, clave: string): string {
   try {
     const bytes = CryptoJS.AES.decrypt(textoCifrado, clave);
     const resultado = bytes.toString(CryptoJS.enc.Utf8);
-    return resultado || textoCifrado; // si falla, devuelve el texto original
+    return resultado || textoCifrado;
   } catch {
     return textoCifrado;
   }
@@ -35,6 +33,7 @@ export default function DashboardPage() {
   const [nombreCompleto, setNombreCompleto] = useState("");
   const [credenciales, setCredenciales] = useState<Credencial[]>([]);
   const [modoOscuro, setModoOscuro] = useState(true);
+  const [sidebarAbierto, setSidebarAbierto] = useState(false);
 
   const [modalAbierto, setModalAbierto] = useState(false);
   const [sitio, setSitio] = useState("");
@@ -80,16 +79,8 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       setEmail(user.email ?? "");
-
-      // Usamos el ID del usuario como clave de encriptación base
-      // combinado con un prefijo fijo para más seguridad
       setClaveEncriptacion(`passcore_${user.id}`);
-
-      const { data: perfil } = await supabase
-        .from("perfiles")
-        .select("nombre, apellido")
-        .eq("id", user.id)
-        .single();
+      const { data: perfil } = await supabase.from("perfiles").select("nombre, apellido").eq("id", user.id).single();
       if (perfil) {
         setNombreCompleto(`${perfil.nombre ?? ""} ${perfil.apellido ?? ""}`.trim());
         setNombreEdit(perfil.nombre ?? "");
@@ -104,17 +95,9 @@ export default function DashboardPage() {
   }, [claveEncriptacion]);
 
   async function cargarCredenciales() {
-    const { data, error } = await supabase
-      .from("credenciales")
-      .select("*")
-      .order("sitio", { ascending: true });
+    const { data, error } = await supabase.from("credenciales").select("*").order("sitio", { ascending: true });
     if (!error && data) {
-      // Desencriptamos cada contraseña al cargar
-      const desencriptadas = data.map((c) => ({
-        ...c,
-        contrasena_encriptada: desencriptar(c.contrasena_encriptada, claveEncriptacion),
-      }));
-      setCredenciales(desencriptadas);
+      setCredenciales(data.map((c) => ({ ...c, contrasena_encriptada: desencriptar(c.contrasena_encriptada, claveEncriptacion) })));
     }
   }
 
@@ -124,132 +107,59 @@ export default function DashboardPage() {
   }
 
   async function handleAgregarCredencial() {
-    if (!sitio || !nombreUsuario || !contrasena) {
-      setMensaje("Completá todos los campos.");
-      return;
-    }
+    if (!sitio || !nombreUsuario || !contrasena) { setMensaje("Completá todos los campos."); return; }
     setGuardando(true);
     const { data: { user } } = await supabase.auth.getUser();
-
-    // Encriptamos la contraseña antes de guardarla
-    const contrasenaEncriptada = encriptar(contrasena, claveEncriptacion);
-
     const { error } = await supabase.from("credenciales").insert({
-      user_id: user?.id,
-      sitio,
-      nombre_usuario: nombreUsuario,
-      contrasena_encriptada: contrasenaEncriptada,
+      user_id: user?.id, sitio, nombre_usuario: nombreUsuario,
+      contrasena_encriptada: encriptar(contrasena, claveEncriptacion),
     });
-    if (error) {
-      setMensaje(`Error: ${error.message}`);
-    } else {
-      setSitio(""); setNombreUsuario(""); setContrasena("");
-      setMensaje(""); setModalAbierto(false);
-      cargarCredenciales();
-    }
+    if (error) { setMensaje(`Error: ${error.message}`); }
+    else { setSitio(""); setNombreUsuario(""); setContrasena(""); setMensaje(""); setModalAbierto(false); cargarCredenciales(); }
     setGuardando(false);
   }
 
-  function cerrarModal() {
-    setModalAbierto(false);
-    setSitio(""); setNombreUsuario(""); setContrasena(""); setMensaje("");
-  }
+  function cerrarModal() { setModalAbierto(false); setSitio(""); setNombreUsuario(""); setContrasena(""); setMensaje(""); }
 
-  function abrirDetalle(c: Credencial) {
-    setCredencialSeleccionada(c);
-    setMostrarContrasena(false);
-    setModoEdicion(false);
-    setMensajeEdit("");
-  }
+  function abrirDetalle(c: Credencial) { setCredencialSeleccionada(c); setMostrarContrasena(false); setModoEdicion(false); setMensajeEdit(""); }
+  function cerrarDetalle() { setCredencialSeleccionada(null); setMostrarContrasena(false); setModoEdicion(false); setMensajeEdit(""); }
 
-  function cerrarDetalle() {
-    setCredencialSeleccionada(null);
-    setMostrarContrasena(false);
-    setModoEdicion(false);
-    setMensajeEdit("");
-  }
-
-  function activarEdicion(c: Credencial) {
-    setSitioEdit(c.sitio);
-    setUsuarioEdit(c.nombre_usuario);
-    setContrasenaEdit(c.contrasena_encriptada); // ya viene desencriptada
-    setMostrarContrasenaEdit(false);
-    setMensajeEdit("");
-    setModoEdicion(true);
-  }
-
-  function cancelarEdicion() {
-    setModoEdicion(false);
-    setMensajeEdit("");
-  }
+  function activarEdicion(c: Credencial) { setSitioEdit(c.sitio); setUsuarioEdit(c.nombre_usuario); setContrasenaEdit(c.contrasena_encriptada); setMostrarContrasenaEdit(false); setMensajeEdit(""); setModoEdicion(true); }
+  function cancelarEdicion() { setModoEdicion(false); setMensajeEdit(""); }
 
   async function handleGuardarEdicion() {
-    if (!sitioEdit || !usuarioEdit || !contrasenaEdit) {
-      setMensajeEdit("Completá todos los campos.");
-      return;
-    }
+    if (!sitioEdit || !usuarioEdit || !contrasenaEdit) { setMensajeEdit("Completá todos los campos."); return; }
     if (!credencialSeleccionada) return;
-
     setGuardandoEdit(true);
-
-    // Encriptamos antes de guardar
-    const contrasenaEncriptada = encriptar(contrasenaEdit, claveEncriptacion);
-
-    const { error } = await supabase
-      .from("credenciales")
-      .update({
-        sitio: sitioEdit,
-        nombre_usuario: usuarioEdit,
-        contrasena_encriptada: contrasenaEncriptada,
-      })
-      .eq("id", credencialSeleccionada.id);
-
-    if (error) {
-      setMensajeEdit("Error al guardar los cambios.");
-    } else {
-      const actualizada = {
-        ...credencialSeleccionada,
-        sitio: sitioEdit,
-        nombre_usuario: usuarioEdit,
-        contrasena_encriptada: contrasenaEdit, // mostramos la desencriptada en pantalla
-      };
-      setCredencialSeleccionada(actualizada);
-      setModoEdicion(false);
-      setMensajeEdit("");
-      cargarCredenciales();
+    const { error } = await supabase.from("credenciales").update({
+      sitio: sitioEdit, nombre_usuario: usuarioEdit,
+      contrasena_encriptada: encriptar(contrasenaEdit, claveEncriptacion),
+    }).eq("id", credencialSeleccionada.id);
+    if (error) { setMensajeEdit("Error al guardar los cambios."); }
+    else {
+      setCredencialSeleccionada({ ...credencialSeleccionada, sitio: sitioEdit, nombre_usuario: usuarioEdit, contrasena_encriptada: contrasenaEdit });
+      setModoEdicion(false); setMensajeEdit(""); cargarCredenciales();
     }
     setGuardandoEdit(false);
   }
 
   async function handleEliminar(c: Credencial) {
     await supabase.from("credenciales").delete().eq("id", c.id);
-    setCredencialSeleccionada(null);
-    setConfirmandoEliminar(null);
-    cargarCredenciales();
+    setCredencialSeleccionada(null); setConfirmandoEliminar(null); cargarCredenciales();
   }
 
-  function getInicial(nombre: string) {
-    return nombre.charAt(0).toUpperCase();
-  }
-
+  function getInicial(nombre: string) { return nombre.charAt(0).toUpperCase(); }
   const avatarColors = ["#6366F1", "#22D3EE", "#A78BFA", "#34D399", "#F472B6", "#FB923C"];
-  function getAvatarColor(nombre: string) {
-    return avatarColors[nombre.charCodeAt(0) % avatarColors.length];
-  }
+  function getAvatarColor(nombre: string) { return avatarColors[nombre.charCodeAt(0) % avatarColors.length]; }
 
   function abrirConfig() {
-    setConfigAbierta(true);
-    setSeccionActiva("perfil");
+    setConfigAbierta(true); setSidebarAbierto(false); setSeccionActiva("perfil");
     setMensajePerfil(""); setMensajePass(""); setMensajeBorrarCuenta("");
     setPassActual(""); setPassNueva(""); setPassConfirmar("");
     setTextoConfirmacion(""); setConfirmandoBorrarCuenta(false);
   }
-
   function cerrarConfig() { setConfigAbierta(false); }
-
-  function toggleSeccion(seccion: "perfil" | "password" | "peligro") {
-    setSeccionActiva(seccionActiva === seccion ? null : seccion);
-  }
+  function toggleSeccion(seccion: "perfil" | "password" | "peligro") { setSeccionActiva(seccionActiva === seccion ? null : seccion); }
 
   async function handleGuardarPerfil() {
     if (!nombreEdit || !apellidoEdit) { setMensajePerfil("Completá nombre y apellido."); return; }
@@ -279,85 +189,118 @@ export default function DashboardPage() {
     setBorrandoCuenta(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { setMensajeBorrarCuenta("No se pudo verificar tu sesión."); setBorrandoCuenta(false); return; }
-    const { data, error } = await supabase.functions.invoke("borrar-cuenta", {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    const { data, error } = await supabase.functions.invoke("borrar-cuenta", { headers: { Authorization: `Bearer ${session.access_token}` } });
     if (error || data?.error) { setMensajeBorrarCuenta("Error al borrar la cuenta. Intentá de nuevo."); setBorrandoCuenta(false); return; }
     await supabase.auth.signOut();
     router.push("/");
   }
 
-  return (
-    <div className="flex h-screen font-sans" style={{ background: colores.fondo, color: colores.texto }}>
-
-      {/* Barra Lateral */}
-      <aside className="w-64 flex flex-col justify-between py-8 px-5 border-r" style={{ background: colores.panel, borderColor: colores.borde }}>
-        <div>
-          <div className="mb-10 px-2">
-            <h1 className="text-2xl font-black tracking-tight" style={{ color: "#6366F1" }}>PassCore</h1>
-            <p className="text-xs mt-1 font-medium" style={{ color: colores.textoSec }}>Gestor de contraseñas</p>
-          </div>
-          <nav className="flex flex-col gap-1">
-            <button className="text-left font-semibold py-2.5 px-4 rounded-xl flex items-center gap-3 text-sm" style={{ background: "#6366F1", color: "#F8FAFC" }}>
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-              Tus Contraseñas
-            </button>
-            <button
-              onClick={abrirConfig}
-              className="text-left font-semibold py-2.5 px-4 rounded-xl flex items-center gap-3 text-sm border transition-all"
-              style={{ borderColor: colores.borde, color: colores.textoSec, background: "transparent" }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = "#6366F1"; e.currentTarget.style.color = colores.texto; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = colores.borde; e.currentTarget.style.color = colores.textoSec; }}
-            >
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-              </svg>
-              Configuración
-            </button>
-          </nav>
+  // Contenido del sidebar (reutilizado en desktop y móvil)
+  const SidebarContent = () => (
+    <>
+      <div className="flex-1">
+        <div className="mb-10 px-2">
+          <h1 className="text-2xl font-black tracking-tight" style={{ color: "#6366F1" }}>PassCore</h1>
+          <p className="text-xs mt-1 font-medium" style={{ color: colores.textoSec }}>Gestor de contraseñas</p>
         </div>
-
-        <div className="flex flex-col gap-3">
+        <nav className="flex flex-col gap-1">
           <button
-            onClick={() => setModoOscuro(!modoOscuro)}
-            className="flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm font-semibold"
-            style={{ borderColor: colores.borde, color: colores.textoSec, background: "transparent" }}
+            onClick={() => setSidebarAbierto(false)}
+            className="text-left font-semibold py-2.5 px-4 rounded-xl flex items-center gap-3 text-sm"
+            style={{ background: "#6366F1", color: "#F8FAFC" }}
           >
-            <span>{modoOscuro ? "Modo oscuro" : "Modo claro"}</span>
-            {modoOscuro ? (
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            ) : (
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-            )}
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            Tus Contraseñas
           </button>
+          <button
+            onClick={abrirConfig}
+            className="text-left font-semibold py-2.5 px-4 rounded-xl flex items-center gap-3 text-sm border transition-all"
+            style={{ borderColor: colores.borde, color: colores.textoSec, background: "transparent" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#6366F1"; e.currentTarget.style.color = colores.texto; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = colores.borde; e.currentTarget.style.color = colores.textoSec; }}
+          >
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            Configuración
+          </button>
+        </nav>
+      </div>
 
-          <div className="rounded-2xl p-4 border" style={{ background: colores.fondo, borderColor: colores.borde }}>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center font-black text-white text-sm shrink-0" style={{ background: "#6366F1" }}>
-                {(nombreCompleto || email).charAt(0).toUpperCase()}
-              </div>
-              <div className="flex flex-col min-w-0">
-                {nombreCompleto && <span className="font-semibold truncate text-sm" style={{ color: colores.texto }}>{nombreCompleto}</span>}
-                <span className="truncate text-xs" style={{ color: colores.textoSec }}>{email || "Cargando..."}</span>
-              </div>
+      <div className="flex flex-col gap-3">
+        <button
+          onClick={() => setModoOscuro(!modoOscuro)}
+          className="flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm font-semibold"
+          style={{ borderColor: colores.borde, color: colores.textoSec, background: "transparent" }}
+        >
+          <span>{modoOscuro ? "Modo oscuro" : "Modo claro"}</span>
+          {modoOscuro ? (
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          ) : (
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          )}
+        </button>
+
+        <div className="rounded-2xl p-4 border" style={{ background: colores.fondo, borderColor: colores.borde }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center font-black text-white text-sm shrink-0" style={{ background: "#6366F1" }}>
+              {(nombreCompleto || email).charAt(0).toUpperCase()}
+            </div>
+            <div className="flex flex-col min-w-0">
+              {nombreCompleto && <span className="font-semibold truncate text-sm" style={{ color: colores.texto }}>{nombreCompleto}</span>}
+              <span className="truncate text-xs" style={{ color: colores.textoSec }}>{email || "Cargando..."}</span>
             </div>
           </div>
         </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex h-screen font-sans" style={{ background: colores.fondo, color: colores.texto }}>
+
+      {/* Sidebar desktop */}
+      <aside className="hidden md:flex w-64 flex-col justify-between py-8 px-5 border-r shrink-0" style={{ background: colores.panel, borderColor: colores.borde }}>
+        <SidebarContent />
       </aside>
 
+      {/* Sidebar móvil overlay */}
+      {sidebarAbierto && (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setSidebarAbierto(false)} />
+          <aside className="absolute left-0 top-0 h-full w-72 flex flex-col justify-between py-8 px-5 z-50" style={{ background: colores.panel }}>
+            <SidebarContent />
+          </aside>
+        </div>
+      )}
+
       {/* Panel Principal */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-16 flex items-center justify-between px-8 border-b" style={{ background: colores.panel, borderColor: colores.borde }}>
-          <p className="font-bold text-lg" style={{ color: colores.texto }}>
-            {credenciales.length > 0
-              ? `${credenciales.length} contraseña${credenciales.length !== 1 ? "s" : ""} guardada${credenciales.length !== 1 ? "s" : ""}`
-              : "Bienvenido a PassCore"}
-          </p>
+      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+
+        {/* Header */}
+        <header className="h-14 md:h-16 flex items-center justify-between px-4 md:px-8 border-b shrink-0" style={{ background: colores.panel, borderColor: colores.borde }}>
+          <div className="flex items-center gap-3">
+            {/* Botón hamburguesa móvil */}
+            <button
+              onClick={() => setSidebarAbierto(true)}
+              className="md:hidden p-2 rounded-xl border"
+              style={{ borderColor: colores.borde, color: colores.textoSec }}
+            >
+              <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M3 12h18M3 6h18M3 18h18"/>
+              </svg>
+            </button>
+            <p className="font-bold text-sm md:text-lg truncate" style={{ color: colores.texto }}>
+              {credenciales.length > 0
+                ? `${credenciales.length} contraseña${credenciales.length !== 1 ? "s" : ""} guardada${credenciales.length !== 1 ? "s" : ""}`
+                : "Bienvenido a PassCore"}
+            </p>
+          </div>
           <button
             onClick={handleSignOut}
-            className="px-4 py-2 rounded-xl font-semibold text-sm border transition-all"
+            className="px-3 py-1.5 md:px-4 md:py-2 rounded-xl font-semibold text-xs md:text-sm border transition-all"
             style={{ borderColor: colores.borde, color: colores.textoSec, background: "transparent" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = "#6366F1"; e.currentTarget.style.color = colores.texto; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = colores.borde; e.currentTarget.style.color = colores.textoSec; }}
@@ -366,48 +309,48 @@ export default function DashboardPage() {
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8">
+        {/* Contenido */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-8">
           {credenciales.length === 0 ? (
             <div className="flex items-center justify-center h-full">
-              <div className="text-center p-14 rounded-3xl border max-w-sm w-full" style={{ background: colores.panel, borderColor: colores.borde }}>
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6" style={{ background: "#6366F120" }}>
-                  <svg width="28" height="28" fill="none" stroke="#6366F1" strokeWidth="2" viewBox="0 0 24 24">
+              <div className="text-center p-8 md:p-14 rounded-3xl border max-w-sm w-full" style={{ background: colores.panel, borderColor: colores.borde }}>
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: "#6366F120" }}>
+                  <svg width="26" height="26" fill="none" stroke="#6366F1" strokeWidth="2" viewBox="0 0 24 24">
                     <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                   </svg>
                 </div>
-                <h3 className="text-xl font-black mb-2" style={{ color: colores.texto }}>Sin contraseñas aún</h3>
-                <p className="text-sm mb-8" style={{ color: colores.textoSec }}>Guardá tus credenciales de forma segura y accedé desde cualquier lugar.</p>
-                <button onClick={() => setModalAbierto(true)} className="font-bold py-3 px-8 rounded-xl w-full" style={{ background: "#6366F1", color: "#F8FAFC" }}>
+                <h3 className="text-lg md:text-xl font-black mb-2" style={{ color: colores.texto }}>Sin contraseñas aún</h3>
+                <p className="text-sm mb-6 md:mb-8" style={{ color: colores.textoSec }}>Guardá tus credenciales de forma segura y accedé desde cualquier lugar.</p>
+                <button onClick={() => setModalAbierto(true)} className="font-bold py-3 px-8 rounded-xl w-full text-sm" style={{ background: "#6366F1", color: "#F8FAFC" }}>
                   + Agregar Contraseña
                 </button>
               </div>
             </div>
           ) : (
             <div className="max-w-2xl mx-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-base font-bold" style={{ color: colores.texto }}>Todas las contraseñas</h3>
-                <button onClick={() => setModalAbierto(true)} className="font-bold py-2 px-5 rounded-xl text-sm" style={{ background: "#6366F1", color: "#F8FAFC" }}>
+              <div className="flex justify-between items-center mb-4 md:mb-6">
+                <h3 className="text-sm md:text-base font-bold" style={{ color: colores.texto }}>Todas las contraseñas</h3>
+                <button onClick={() => setModalAbierto(true)} className="font-bold py-2 px-4 md:px-5 rounded-xl text-xs md:text-sm" style={{ background: "#6366F1", color: "#F8FAFC" }}>
                   + Contraseña
                 </button>
               </div>
               <div className="flex flex-col gap-2">
                 {credenciales.map((c) => (
                   <div
-                    key={c.id}
-                    onClick={() => abrirDetalle(c)}
-                    className="rounded-2xl px-5 py-4 flex items-center gap-4 cursor-pointer transition-all border"
+                    key={c.id} onClick={() => abrirDetalle(c)}
+                    className="rounded-2xl px-4 md:px-5 py-3 md:py-4 flex items-center gap-3 md:gap-4 cursor-pointer transition-all border"
                     style={{ background: colores.panel, borderColor: colores.borde }}
                     onMouseEnter={e => (e.currentTarget.style.borderColor = "#6366F1")}
                     onMouseLeave={e => (e.currentTarget.style.borderColor = colores.borde)}
                   >
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-base shrink-0" style={{ background: getAvatarColor(c.sitio) }}>
+                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center font-black text-white text-sm shrink-0" style={{ background: getAvatarColor(c.sitio) }}>
                       {getInicial(c.sitio)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold truncate text-sm" style={{ color: colores.texto }}>{c.sitio}</p>
                       <p className="text-xs truncate" style={{ color: colores.textoSec }}>{c.nombre_usuario}</p>
                     </div>
-                    <span className="font-mono text-sm tracking-widest" style={{ color: colores.borde }}>••••••</span>
+                    <span className="font-mono text-xs tracking-widest shrink-0" style={{ color: colores.borde }}>••••••</span>
                   </div>
                 ))}
               </div>
@@ -418,8 +361,8 @@ export default function DashboardPage() {
 
       {/* Modal nueva contraseña */}
       {modalAbierto && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: "rgba(15,23,42,0.85)" }}>
-          <div className="rounded-3xl shadow-2xl p-8 w-full max-w-md mx-4 border" style={{ background: colores.panel, borderColor: colores.borde }}>
+        <div className="fixed inset-0 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" style={{ background: "rgba(15,23,42,0.85)" }}>
+          <div className="rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 md:p-8 w-full sm:max-w-md border" style={{ background: colores.panel, borderColor: colores.borde }}>
             <h2 className="text-lg font-black mb-6" style={{ color: colores.texto }}>Nueva Contraseña</h2>
             <div className="flex flex-col gap-4">
               {[
@@ -453,14 +396,14 @@ export default function DashboardPage() {
 
       {/* Modal detalle / edición */}
       {credencialSeleccionada && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: "rgba(15,23,42,0.85)" }}>
-          <div className="rounded-3xl shadow-2xl p-8 w-full max-w-md mx-4 border" style={{ background: colores.panel, borderColor: colores.borde }}>
+        <div className="fixed inset-0 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" style={{ background: "rgba(15,23,42,0.85)" }}>
+          <div className="rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 md:p-8 w-full sm:max-w-md border" style={{ background: colores.panel, borderColor: colores.borde }}>
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white text-2xl shrink-0" style={{ background: getAvatarColor(modoEdicion ? sitioEdit : credencialSeleccionada.sitio) }}>
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center font-black text-white text-xl shrink-0" style={{ background: getAvatarColor(modoEdicion ? sitioEdit : credencialSeleccionada.sitio) }}>
                 {getInicial(modoEdicion ? sitioEdit || credencialSeleccionada.sitio : credencialSeleccionada.sitio)}
               </div>
               <div>
-                <h2 className="text-xl font-black" style={{ color: colores.texto }}>
+                <h2 className="text-lg md:text-xl font-black" style={{ color: colores.texto }}>
                   {modoEdicion ? "Modificar credencial" : credencialSeleccionada.sitio}
                 </h2>
                 <p className="text-xs" style={{ color: colores.textoSec }}>
@@ -507,10 +450,10 @@ export default function DashboardPage() {
                 <div>
                   <label className="block text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: colores.textoSec }}>Contraseña</label>
                   <div className="flex items-center gap-2">
-                    <p className="flex-1 px-4 py-3 rounded-xl font-mono text-sm border" style={{ background: colores.fondo, borderColor: colores.borde, color: colores.texto }}>
+                    <p className="flex-1 px-4 py-3 rounded-xl font-mono text-sm border truncate" style={{ background: colores.fondo, borderColor: colores.borde, color: colores.texto }}>
                       {mostrarContrasena ? credencialSeleccionada.contrasena_encriptada : "••••••••••••"}
                     </p>
-                    <button onClick={() => setMostrarContrasena(!mostrarContrasena)} className="px-4 py-3 rounded-xl text-xs font-bold border" style={{ borderColor: colores.borde, background: colores.fondo, color: colores.textoSec }}>
+                    <button onClick={() => setMostrarContrasena(!mostrarContrasena)} className="px-4 py-3 rounded-xl text-xs font-bold border shrink-0" style={{ borderColor: colores.borde, background: colores.fondo, color: colores.textoSec }}>
                       {mostrarContrasena ? "Ocultar" : "Ver"}
                     </button>
                   </div>
@@ -528,16 +471,14 @@ export default function DashboardPage() {
 
       {/* Modal confirmación eliminar */}
       {confirmandoEliminar && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: "rgba(15,23,42,0.9)" }}>
-          <div className="rounded-3xl shadow-2xl p-8 w-full max-w-sm mx-4 border text-center" style={{ background: colores.panel, borderColor: colores.borde }}>
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-6" style={{ background: "#F472B620" }}>
-              <svg width="24" height="24" fill="none" stroke="#F472B6" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+        <div className="fixed inset-0 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" style={{ background: "rgba(15,23,42,0.9)" }}>
+          <div className="rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 md:p-8 w-full sm:max-w-sm border text-center" style={{ background: colores.panel, borderColor: colores.borde }}>
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: "#F472B620" }}>
+              <svg width="22" height="22" fill="none" stroke="#F472B6" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
             </div>
             <h2 className="text-lg font-black mb-2" style={{ color: colores.texto }}>¿Estás seguro?</h2>
-            <p className="text-sm mb-8" style={{ color: colores.textoSec }}>
-              ¿Querés eliminar la clave de acceso de{" "}
-              <span className="font-bold" style={{ color: colores.texto }}>{confirmandoEliminar.sitio}</span>?
-              Esta acción no se puede deshacer.
+            <p className="text-sm mb-6" style={{ color: colores.textoSec }}>
+              ¿Querés eliminar la clave de <span className="font-bold" style={{ color: colores.texto }}>{confirmandoEliminar.sitio}</span>? No se puede deshacer.
             </p>
             <div className="flex gap-3">
               <button onClick={() => setConfirmandoEliminar(null)} className="flex-1 py-3 rounded-xl font-semibold text-sm border" style={{ borderColor: colores.borde, color: colores.textoSec, background: "transparent" }}>Cancelar</button>
@@ -549,18 +490,19 @@ export default function DashboardPage() {
 
       {/* Modal Configuración */}
       {configAbierta && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: "rgba(15,23,42,0.9)" }}>
-          <div className="rounded-3xl shadow-2xl w-full max-w-3xl border max-h-[85vh] flex flex-col" style={{ background: colores.panel, borderColor: colores.borde }}>
-            <div className="p-8 pb-4 border-b" style={{ borderColor: colores.borde }}>
-              <h2 className="text-2xl font-black" style={{ color: colores.texto }}>Configuración</h2>
+        <div className="fixed inset-0 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" style={{ background: "rgba(15,23,42,0.9)" }}>
+          <div className="rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-3xl border flex flex-col" style={{ background: colores.panel, borderColor: colores.borde, maxHeight: "90vh" }}>
+            <div className="p-6 md:p-8 pb-4 border-b shrink-0" style={{ borderColor: colores.borde }}>
+              <h2 className="text-xl md:text-2xl font-black" style={{ color: colores.texto }}>Configuración</h2>
               <p className="text-sm mt-1" style={{ color: colores.textoSec }}>Administrá tu cuenta y preferencias</p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-4">
+            <div className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col gap-4">
+
               <div className="rounded-2xl border overflow-hidden" style={{ borderColor: colores.borde }}>
-                <button onClick={() => toggleSeccion("perfil")} className="w-full flex items-center justify-between p-5 text-left" style={{ background: colores.fondo }}>
+                <button onClick={() => toggleSeccion("perfil")} className="w-full flex items-center justify-between p-4 md:p-5 text-left" style={{ background: colores.fondo }}>
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "#6366F120" }}>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#6366F120" }}>
                       <svg width="18" height="18" fill="none" stroke="#6366F1" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                     </div>
                     <div>
@@ -568,11 +510,10 @@ export default function DashboardPage() {
                       <p className="text-xs" style={{ color: colores.textoSec }}>Nombre y apellido</p>
                     </div>
                   </div>
-                  <svg width="18" height="18" fill="none" stroke={colores.textoSec} strokeWidth="2" viewBox="0 0 24 24" style={{ transform: seccionActiva === "perfil" ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}><path d="M6 9l6 6 6-6"/></svg>
-                </button>
+<svg width="18" height="18" fill="none" stroke={colores.textoSec} strokeWidth="2" viewBox="0 0 24 24" style={{ transform: seccionActiva === "perfil" ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}><path d="M6 9l6 6 6-6"/></svg>                </button>
                 {seccionActiva === "perfil" && (
-                  <div className="p-5 pt-0">
-                    <div className="flex gap-3 mb-4 pt-4">
+                  <div className="p-4 md:p-5 pt-0">
+                    <div className="flex flex-col sm:flex-row gap-3 mb-4 pt-4">
                       <div className="flex-1">
                         <label className="block text-xs font-bold mb-2" style={{ color: colores.textoSec }}>Nombre</label>
                         <input type="text" className="w-full px-4 py-3 rounded-xl border outline-none text-sm font-medium" style={{ background: colores.panel, borderColor: colores.borde, color: colores.texto }} value={nombreEdit} onChange={(e) => setNombreEdit(e.target.value)} />
@@ -591,9 +532,9 @@ export default function DashboardPage() {
               </div>
 
               <div className="rounded-2xl border overflow-hidden" style={{ borderColor: colores.borde }}>
-                <button onClick={() => toggleSeccion("password")} className="w-full flex items-center justify-between p-5 text-left" style={{ background: colores.fondo }}>
+                <button onClick={() => toggleSeccion("password")} className="w-full flex items-center justify-between p-4 md:p-5 text-left" style={{ background: colores.fondo }}>
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "#22D3EE20" }}>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#22D3EE20" }}>
                       <svg width="18" height="18" fill="none" stroke="#22D3EE" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                     </div>
                     <div>
@@ -601,16 +542,16 @@ export default function DashboardPage() {
                       <p className="text-xs" style={{ color: colores.textoSec }}>Actualizá tu contraseña de acceso</p>
                     </div>
                   </div>
-                  <svg width="18" height="18" fill="none" stroke={colores.textoSec} strokeWidth="2" viewBox="0 0 24 24" style={{ transform: seccionActiva === "password" ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}><path d="M6 9l6 6 6-6"/></svg>
+                  <svg width="18" height="18" fill="none" stroke={colores.textoSec} strokeWidth="2" viewBox="0 0 24 24" style={{ transform: seccionActiva === "password" ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}><path d="M6 9l6 6 6-6"/></svg>
                 </button>
                 {seccionActiva === "password" && (
-                  <div className="p-5 pt-0">
+                  <div className="p-4 md:p-5 pt-0">
                     <div className="flex flex-col gap-3 mb-4 pt-4">
                       <div>
                         <label className="block text-xs font-bold mb-2" style={{ color: colores.textoSec }}>Contraseña actual</label>
                         <input type="password" placeholder="••••••••" className="w-full px-4 py-3 rounded-xl border outline-none text-sm" style={{ background: colores.panel, borderColor: colores.borde, color: colores.texto }} value={passActual} onChange={(e) => setPassActual(e.target.value)} />
                       </div>
-                      <div className="flex gap-3">
+                      <div className="flex flex-col sm:flex-row gap-3">
                         <div className="flex-1">
                           <label className="block text-xs font-bold mb-2" style={{ color: colores.textoSec }}>Nueva contraseña</label>
                           <input type="password" placeholder="••••••••" className="w-full px-4 py-3 rounded-xl border outline-none text-sm" style={{ background: colores.panel, borderColor: colores.borde, color: colores.texto }} value={passNueva} onChange={(e) => setPassNueva(e.target.value)} />
@@ -630,9 +571,9 @@ export default function DashboardPage() {
               </div>
 
               <div className="rounded-2xl border overflow-hidden" style={{ borderColor: "#F472B640" }}>
-                <button onClick={() => toggleSeccion("peligro")} className="w-full flex items-center justify-between p-5 text-left" style={{ background: colores.fondo }}>
+                <button onClick={() => toggleSeccion("peligro")} className="w-full flex items-center justify-between p-4 md:p-5 text-left" style={{ background: colores.fondo }}>
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "#F472B620" }}>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#F472B620" }}>
                       <svg width="18" height="18" fill="none" stroke="#F472B6" strokeWidth="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
                     </div>
                     <div>
@@ -643,7 +584,7 @@ export default function DashboardPage() {
                   <svg width="18" height="18" fill="none" stroke={colores.textoSec} strokeWidth="2" viewBox="0 0 24 24" style={{ transform: seccionActiva === "peligro" ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}><path d="M6 9l6 6 6-6"/></svg>
                 </button>
                 {seccionActiva === "peligro" && (
-                  <div className="p-5 pt-0">
+                  <div className="p-4 md:p-5 pt-0">
                     <div className="pt-4">
                       {!confirmandoBorrarCuenta ? (
                         <>
@@ -671,7 +612,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="p-8 pt-4 border-t" style={{ borderColor: colores.borde }}>
+            <div className="p-4 md:p-8 pt-4 border-t shrink-0" style={{ borderColor: colores.borde }}>
               <button onClick={cerrarConfig} className="w-full py-3 rounded-xl font-semibold text-sm border" style={{ borderColor: colores.borde, color: colores.textoSec, background: "transparent" }}>Cerrar</button>
             </div>
           </div>
