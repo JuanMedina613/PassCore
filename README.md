@@ -73,7 +73,5 @@ npm run dev
 Finalmente, abre [http://localhost:3000](http://localhost:3000) en tu navegador para ver la aplicación funcionando.
 
 ### 4. Finalizar
-En la Terminal escribe el siguiente comando para finalizar y cerrar el puerto.
-```bash
-npm run dev
-```
+En la Terminal presiona *CTRL + C* para finalizar y cerrar el puerto.
+
